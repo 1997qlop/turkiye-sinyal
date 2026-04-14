@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TR Sinyal">
+<meta name="theme-color" content="#c8102e">
+<title>Türkiye Piyasa Sinyali</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --red:#c8102e; --green:#27ae60; --sell:#e74c3c; --hold:#f39c12; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow-x:hidden; }
+  body { background:var(--red); font-family:'IBM Plex Sans',-apple-system,sans-serif; color:#fff; min-height:100vh; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px); background-size:32px 32px; pointer-events:none; z-index:0; }
+  .watermark { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); font-size:240px; opacity:0.05; pointer-events:none; z-index:0; user-select:none; line-height:1; }
+  .flag-stripe { position:fixed; bottom:0; left:0; right:0; height:5px; background:#fff; z-index:20; }
+  .container { position:relative; z-index:1; max-width:520px; margin:0 auto; padding:0 14px 80px; }
+
+  /* Header */
+  .header { padding:20px 0 16px; border-bottom:1px solid rgba(255,255,255,0.2); margin-bottom:16px; }
+  .header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .logo-wrap { display:flex; align-items:center; gap:10px; }
+  .logo-symbol { font-size:22px; line-height:1; }
+  .logo-text { font-family:'Bebas Neue',Impact,sans-serif; font-size:22px; letter-spacing:3px; color:#fff; line-height:1; }
+  .logo-sub { font-family:'IBM Plex Mono',monospace; font-size:8px; color:rgba(255,255,255,0.45); letter-spacing:1.5px; text-transform:uppercase; margin-top:3px; }
+  .signal-badge { text-align:right; }
+  .signal-badge-main { font-family:'Bebas Neue',Impact,sans-serif; font-size:16px; letter-spacing:2px; line-height:1; }
+  .signal-badge-conf { font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(255,255,255,0.4); margin-top:2px; }
+  .header-sub { font-size:12px; color:rgba(255,255,255,0.6); line-height:1.5; }
+  .header-meta { display:flex; justify-content:space-between; margin-top:6px; }
+  .header-date,.header-updated { font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(255,255,255,0.3); }
+
+  /* Hint */
+  .hint { font-family:'IBM Plex Mono',monospace; font-size:10px; color:rgba(255,255,255,0.35); text-align:center; margin-bottom:12px; letter-spacing:1px; }
+
+  /* Stock grid */
+  .stock-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; align-items:start; }
+  .stock-col { display:flex; flex-direction:column; gap:5px; }
+  .stock-row { padding:8px 10px; border-radius:6px; background:rgba(0,0,0,0.22); border:1px solid rgba(255,255,255,0.07); cursor:pointer; transition:background 0.15s,border-color 0.15s,transform 0.1s; user-select:none; }
+  .stock-row:active { transform:scale(0.97); }
+  .stock-row.active { background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.25); }
+  .stock-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+  .stock-ticker { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; color:#fff; letter-spacing:0.5px; }
+  .stock-pct { font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; }
+  .stock-bottom { display:flex; justify-content:space-between; align-items:center; }
+  .stock-name { font-size:9px; color:rgba(255,255,255,0.38); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:62%; line-height:1.3; }
+  .action-tag { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700; letter-spacing:0.5px; padding:2px 6px; border-radius:3px; }
+  .action-AL  { background:rgba(39,174,96,0.22);  color:#2ecc71; }
+  .action-SAT { background:rgba(231,76,60,0.22);  color:#ff6b6b; }
+  .action-TUT { background:rgba(243,156,18,0.20); color:#f39c12; }
+  .pct-up   { color:#2ecc71; }
+  .pct-down { color:#ff6b6b; }
+  .pct-flat { color:#f39c12; }
+
+  /* Popup */
+  .popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:100; display:flex; align-items:flex-end; padding-bottom:20px; animation:fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .popup { width:100%; max-width:520px; margin:0 auto; background:#1c0008; border:1px solid rgba(255,255,255,0.15); border-radius:16px 16px 0 0; padding:22px 20px 28px; animation:slideUp 0.3s cubic-bezier(.34,1.2,.64,1); }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .popup-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+  .popup-ticker { font-family:'Bebas Neue',Impact,sans-serif; font-size:26px; letter-spacing:2px; color:#fff; line-height:1; }
+  .popup-name { font-size:12px; color:rgba(255,255,255,0.45); margin-top:3px; }
+  .popup-right { text-align:right; }
+  .popup-pct { font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:700; line-height:1; }
+  .popup-action { display:inline-block; margin-top:5px; padding:3px 10px; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:1px; }
+  .popup-news { background:rgba(255,255,255,0.05); border-radius:10px; padding:14px; }
+  .popup-news-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(255,255,255,0.35); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px; }
+  .popup-news-text { font-size:14px; color:rgba(255,255,255,0.82); line-height:1.65; }
+  .popup-tag { display:inline-block; margin-bottom:8px; padding:2px 8px; border-radius:3px; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:1px; text-transform:uppercase; }
+  .tag-red    { background:rgba(255,107,107,0.18); color:#ff6b6b; }
+  .tag-green  { background:rgba(46,204,113,0.18);  color:#2ecc71; }
+  .tag-yellow { background:rgba(243,156,18,0.18);  color:#f39c12; }
+  .popup-close { margin-top:16px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11px; color:rgba(255,255,255,0.3); cursor:pointer; letter-spacing:1px; }
+
+  /* Warning */
+  .warning { margin-top:20px; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:11px 14px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:rgba(255,255,255,0.28); text-align:center; line-height:1.7; }
+  .warning strong { color:rgba(255,255,255,0.5); }
+</style>
+</head>
+<body>
+<div class="watermark">☾★</div>
+<div class="flag-stripe"></div>
+
+<div class="container">
+  <div class="header">
+    <div class="header-top">
+      <div class="logo-wrap">
+        <div class="logo-symbol">☾★</div>
+        <div>
+          <div class="logo-text">TÜRKİYE SİNYAL</div>
+          <div class="logo-sub">30 HİSSE · GÜNLÜK ANALİZ</div>
+        </div>
+      </div>
+      <div class="signal-badge">
+        <div class="signal-badge-main" id="overallBadge">{{OVERALL}}</div>
+        <div class="signal-badge-conf">Güven: {{CONFIDENCE}}/100</div>
+      </div>
+    </div>
+    <div class="header-sub">{{OVERALL_SUB}}</div>
+    <div class="header-meta">
+      <span class="header-date" id="dateStr"></span>
+      <span class="header-updated">🔄 {{UPDATE_TIME}}</span>
+    </div>
+  </div>
+
+  <div class="hint">👆 HİSSEYE TIKLA → HABERİ GÖR</div>
+
+  <div class="stock-grid">
+    <div class="stock-col" id="colLeft"></div>
+    <div class="stock-col" id="colRight"></div>
+  </div>
+
+  <div class="warning">
+    <strong>⚠ UYARI:</strong> Bu analiz yatırım tavsiyesi değildir.<br>Her zaman kendi araştırmanızı yapın.
+  </div>
+</div>
+
+<!-- Popup -->
+<div class="popup-overlay" id="popup" style="display:none" onclick="closePopup()">
+  <div class="popup" onclick="event.stopPropagation()">
+    <div class="popup-header">
+      <div>
+        <div class="popup-ticker" id="popTicker"></div>
+        <div class="popup-name"   id="popName"></div>
+      </div>
+      <div class="popup-right">
+        <div class="popup-pct"    id="popPct"></div>
+        <div class="popup-action" id="popAction"></div>
+      </div>
+    </div>
+    <div class="popup-news">
+      <div class="popup-news-label">📰 HABER ETKİSİ</div>
+      <div class="popup-tag"       id="popTag"></div>
+      <div class="popup-news-text" id="popNews"></div>
+    </div>
+    <div class="popup-close" onclick="closePopup()">KAPAT ✕</div>
+  </div>
+</div>
+
+<script>
+// Set today's date
+document.getElementById('dateStr').textContent =
+  new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+// Overall badge color
+const oc = "{{OVERALL_CLASS}}";
+const badge = document.getElementById('overallBadge');
+badge.style.color = oc==='risk-off' ? '#ff6b6b' : oc==='risk-on' ? '#2ecc71' : '#fff';
+
+// Stock data injected by update.py
+const STOCKS = {{STOCKS_JSON}};
+
+function renderCol(colId, stocks) {
+  const col = document.getElementById(colId);
+  stocks.forEach(s => {
+    const pctClass = s.pct > 0 ? 'pct-up' : s.pct < 0 ? 'pct-down' : 'pct-flat';
+    const pctStr   = (s.pct > 0 ? '+' : '') + s.pct + '%';
+    const div = document.createElement('div');
+    div.className = 'stock-row';
+    div.innerHTML = `
+      <div class="stock-top">
+        <span class="stock-ticker">${s.ticker}</span>
+        <span class="stock-pct ${pctClass}">${pctStr}</span>
+      </div>
+      <div class="stock-bottom">
+        <span class="stock-name">${s.name}</span>
+        <span class="action-tag action-${s.action}">${s.action}</span>
+      </div>`;
+    div.addEventListener('click', () => openPopup(s, div));
+    col.appendChild(div);
+  });
+}
+
+renderCol('colLeft',  STOCKS.slice(0, 15));
+renderCol('colRight', STOCKS.slice(15, 30));
+
+let activeRow = null;
+function openPopup(s, row) {
+  if (activeRow) activeRow.classList.remove('active');
+  activeRow = row;
+  row.classList.add('active');
+  const pctClass = s.pct > 0 ? 'pct-up' : s.pct < 0 ? 'pct-down' : 'pct-flat';
+  const pctStr   = (s.pct > 0 ? '+' : '') + s.pct + '%';
+  document.getElementById('popTicker').textContent = s.ticker;
+  document.getElementById('popName').textContent   = s.name;
+  document.getElementById('popPct').textContent    = pctStr;
+  document.getElementById('popPct').className      = 'popup-pct ' + pctClass;
+  document.getElementById('popNews').textContent   = s.news;
+  const act = document.getElementById('popAction');
+  act.textContent = s.action;
+  act.className   = 'popup-action action-' + s.action;
+  const tag = document.getElementById('popTag');
+  tag.textContent = s.tag;
+  tag.className   = 'popup-tag ' + s.tag_class;
+  document.getElementById('popup').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePopup() {
+  document.getElementById('popup').style.display = 'none';
+  document.body.style.overflow = '';
+  if (activeRow) { activeRow.classList.remove('active'); activeRow = null; }
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closePopup(); });
+</script>
+</body>
+</html>
