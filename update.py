@@ -3,66 +3,91 @@ import json
 import os
 from datetime import datetime
 
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+client = anthropic.Anthropic(api_key=os.environ[“ANTHROPIC_API_KEY”])
 
-PROMPT = """Bugün Türkiye piyasaları için güncel haber analizi yap. Web araması kullanarak bu sabahki en önemli gelişmeleri bul.
+today = datetime.now().strftime(”%d %B %Y”)
 
-Analiz edilecek 30 hisse: THYAO, TUPRS, ASELS, EREGL, BIMAS, GARAN, AKBNK, KCHOL, SAHOL, SISE, TOASO, FROTO, PETKM, TTKOM, TAVHL, PGSUS, DOHOL, YKBNK, HALKB, ARCLK, VESTL, TKFEN, KOZAL, IPEKE, ENKAI, MAVI, LOGO, GUBRF, NETAS, AEFES
+PROMPT = f””“Bugün {today}. Türkiye piyasa analisti olarak görev yapıyorsun.
 
-SADECE JSON döndür, başka hiçbir şey yazma:
-{
-  "overall": "RİSK KAPALI",
-  "overall_class": "risk-off",
-  "overall_sub": "tek cümle piyasa özeti Türkçe",
-  "confidence": 82,
-  "stocks": [
-    {
-      "ticker": "THYAO",
-      "name": "Türk Hava Yolları",
-      "pct": -2.1,
-      "action": "SAT",
-      "tag": "OLUMSUZ",
-      "tag_class": "tag-red",
-      "news": "Bu haberin bu hisseye etkisi 2 cümle max Türkçe"
-    }
-  ]
-}
+Aşağıdaki 30 Türk hissesi için bugünün piyasa koşullarına göre analiz yap.
+Türkiye ekonomisi, TCMB politikası, döviz kuru, global gelişmeler, enerji fiyatları ve sektörel haberleri dikkate al.
 
-Tüm 30 hisseyi dahil et. pct sayısal olsun (örn: -2.1, +3.4). action: AL/SAT/TUT. tag: OLUMLU/OLUMSUZ/NÖTR. tag_class: tag-green/tag-red/tag-yellow. overall_class: risk-on/risk-off/neutral."""
+HİSSELER: THYAO, TUPRS, ASELS, EREGL, BIMAS, GARAN, AKBNK, KCHOL, SAHOL, SISE, TOASO, FROTO, PETKM, TTKOM, TAVHL, PGSUS, DOHOL, YKBNK, HALKB, ARCLK, VESTL, TKFEN, KOZAL, IPEKE, ENKAI, MAVI, LOGO, GUBRF, NETAS, AEFES
 
-print("Haberler çekiliyor ve analiz yapılıyor...")
+SADECE JSON döndür, başka hiçbir şey yazma, markdown kullanma:
+
+{{
+“overall”: “RİSK KAPALI”,
+“overall_class”: “risk-off”,
+“overall_sub”: “tek cümle piyasa özeti Türkçe”,
+“confidence”: 82,
+“stocks”: [
+{{
+“ticker”: “THYAO”,
+“name”: “Türk Hava Yolları”,
+“pct”: -2.1,
+“action”: “SAT”,
+“tag”: “OLUMSUZ”,
+“tag_class”: “tag-red”,
+“news”: “Hissenin neden bu yönde gittiğini 2 cümle Türkçe açıkla”
+}}
+]
+}}
+
+Kurallar:
+
+- Tüm 30 hisseyi dahil et
+- pct sayısal olsun örn: -2.1 veya 3.4 (artı işareti koyma)
+- action: AL veya SAT veya TUT
+- tag: OLUMLU veya OLUMSUZ veya NÖTR
+- tag_class: tag-green veya tag-red veya tag-yellow
+- overall_class: risk-on veya risk-off veya neutral
+- Sadece JSON döndür, başka hiçbir şey yazma”””
+
+print(“Analiz yapılıyor…”)
 
 response = client.messages.create(
-    model="claude-sonnet-4-20250514",
-    max_tokens=4000,
-    tools=[{"type": "web_search_20250305", "name": "web_search"}],
-    messages=[{"role": "user", "content": PROMPT}]
+model=“claude-haiku-4-5-20251001”,
+max_tokens=4000,
+messages=[{“role”: “user”, “content”: PROMPT}]
 )
 
-# JSON çıkar
-text = "".join(block.text for block in response.content if hasattr(block, "text"))
-start = text.find("{")
-end   = text.rfind("}") + 1
+text = response.content[0].text.strip()
+
+# Markdown temizle
+
+if “`" in text: parts = text.split("`”)
+for p in parts:
+if p.startswith(“json”):
+text = p[4:].strip()
+break
+elif p.strip().startswith(”{”):
+text = p.strip()
+break
+
+start = text.find(”{”)
+end   = text.rfind(”}”) + 1
 data  = json.loads(text[start:end])
 
-print(f"Analiz tamamlandı: {data['overall']} — Güven: {data['confidence']}/100")
+print(f”Analiz tamamlandı: {data[‘overall’]} — Güven: {data[‘confidence’]}/100”)
 
 # HTML şablonunu oku ve güncelle
-with open("template.html", "r", encoding="utf-8") as f:
-    template = f.read()
 
-stocks_js = json.dumps(data["stocks"], ensure_ascii=False, indent=2)
-now = datetime.now().strftime("%d.%m.%Y %H:%M")
+with open(“template.html”, “r”, encoding=“utf-8”) as f:
+template = f.read()
 
-html = template \
-    .replace("{{OVERALL}}", data["overall"]) \
-    .replace("{{OVERALL_CLASS}}", data["overall_class"]) \
-    .replace("{{OVERALL_SUB}}", data["overall_sub"]) \
-    .replace("{{CONFIDENCE}}", str(data["confidence"])) \
-    .replace("{{STOCKS_JSON}}", stocks_js) \
-    .replace("{{UPDATE_TIME}}", now)
+stocks_js = json.dumps(data[“stocks”], ensure_ascii=False, indent=2)
+now = datetime.now().strftime(”%d.%m.%Y %H:%M”)
 
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(html)
+html = template   
+.replace(”{{OVERALL}}”, data[“overall”])   
+.replace(”{{OVERALL_CLASS}}”, data[“overall_class”])   
+.replace(”{{OVERALL_SUB}}”, data[“overall_sub”])   
+.replace(”{{CONFIDENCE}}”, str(data[“confidence”]))   
+.replace(”{{STOCKS_JSON}}”, stocks_js)   
+.replace(”{{UPDATE_TIME}}”, now)
 
-print(f"index.html güncellendi! ({now})")
+with open(“index.html”, “w”, encoding=“utf-8”) as f:
+f.write(html)
+
+print(f”index.html güncellendi! ({now})”)
