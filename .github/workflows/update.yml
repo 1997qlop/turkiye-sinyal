@@ -1,0 +1,33 @@
+name: Günlük Güncelleme
+
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'  # Her hafta içi 09:00 Türkiye saati (UTC+3)
+  workflow_dispatch:        # Manuel tetikleme butonu
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Bağımlılıkları yükle
+        run: pip install anthropic requests
+
+      - name: Sinyalleri güncelle
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python update.py
+
+      - name: Değişiklikleri kaydet
+        run: |
+          git config user.name "TR Sinyal Bot"
+          git config user.email "bot@turkiyesinyal.com"
+          git add index.html
+          git diff --staged --quiet || git commit -m "Günlük güncelleme $(date +'%d.%m.%Y %H:%M')"
+          git push
