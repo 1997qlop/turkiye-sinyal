@@ -45,33 +45,42 @@ Kurallar:
 - Sadece JSON döndür, başka hiçbir şey yazma”””
 
 print(“Analiz yapılıyor…”)
+print(f”API Key mevcut: {‘EVET’ if os.environ.get(‘ANTHROPIC_API_KEY’) else ‘HAYIR - EKSİK!’}”)
 
 response = client.messages.create(
-model=“claude-haiku-4-5-20251001”,
+model=“claude-3-5-haiku-20241022”,
 max_tokens=4000,
 messages=[{“role”: “user”, “content”: PROMPT}]
 )
 
 text = response.content[0].text.strip()
+print(f”Ham yanit ilk 200 karakter: {text[:200]}”)
 
 # Markdown temizle
 
-if “`" in text: parts = text.split("`”)
-for p in parts:
-if p.startswith(“json”):
-text = p[4:].strip()
-break
-elif p.strip().startswith(”{”):
-text = p.strip()
-break
+if “`json" in text: text = text.split("`json”)[1].split(”`")[0].strip() elif "`” in text:
+text = text.split(”```”)[1].strip()
 
 start = text.find(”{”)
 end   = text.rfind(”}”) + 1
-data  = json.loads(text[start:end])
+if start == -1 or end == 0:
+print(“HATA: JSON bulunamadi!”)
+print(f”Tam yanit: {text}”)
+exit(1)
 
-print(f”Analiz tamamlandı: {data[‘overall’]} — Güven: {data[‘confidence’]}/100”)
+data = json.loads(text[start:end])
+print(f”Analiz tamam: {data[‘overall’]} — Guven: {data[‘confidence’]}/100”)
+print(f”Hisse sayisi: {len(data[‘stocks’])}”)
 
-# HTML şablonunu oku ve güncelle
+# pct float yap
+
+for s in data[“stocks”]:
+try:
+s[“pct”] = float(str(s[“pct”]).replace(”+”,””))
+except:
+s[“pct”] = 0.0
+
+# Template oku
 
 with open(“template.html”, “r”, encoding=“utf-8”) as f:
 template = f.read()
@@ -90,4 +99,4 @@ html = template
 with open(“index.html”, “w”, encoding=“utf-8”) as f:
 f.write(html)
 
-print(f”index.html güncellendi! ({now})”)
+print(f”index.html guncellendi! ({now})”)
